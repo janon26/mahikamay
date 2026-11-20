@@ -6,8 +6,14 @@ Magical hand drawings out of thin air? Real-time computer vision hand tracking? 
 python -m venv .venv
 .venv\Scripts\activate          # Windows
 pip install -r requirements.txt
-python src/main.py               # q = quit, c = clear, s = save
+python src/main.py               # q = quit, c = clear
 ```
 
-Point your **index finger** up to draw, raise **index + middle** to move without drawing,
-show an **open palm** to clear. See [PLAN.md](PLAN.md) for the roadmap.
+The wand starts **off**. Hold a **fist** for ~0.7s to toggle it on or off (a ring fills while you hold).
+
+With the wand on:
+- **Index finger only** draws
+- **Index + middle finger up** erases a small circle between the two fingertips
+- **Two open palms** held ~1s clears everything
+
+See [PLAN.md](PLAN.md) for the roadmap.

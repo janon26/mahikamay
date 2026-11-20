@@ -1,69 +1,98 @@
-"""MahiKamay: air drawing with your hand. Rough draft.
-
-Run:  python src/main.py      (q = quit, c = clear, s = save)
-"""
 import time
 
 import cv2
+import numpy as np
 
-from canvas import Canvas
-from hand_tracker import HandTracker
+from hand_tracker import HAND_LINES, HandTracker
+
+COLOR = (255, 0, 255)  # BGR
+ERASE_RADIUS = 25
+TOGGLE_SECS, CLEAR_SECS = 0.7, 1.0
+
+since = {}  # when each gesture started being held
 
 
-def main():
-    cap = cv2.VideoCapture(0)
+def up(hand, tip):
+    return hand[tip][1] < hand[tip - 2][1]  # fingertip above its middle joint
+
+
+def hold(name, active, secs):
+    """0..1 progress of holding a gesture; 1 means it has been held long enough."""
+    if not active:
+        since.pop(name, None)
+        return 0
+    return min((time.time() - since.setdefault(name, time.time())) / secs, 1)
+
+
+def ring(frame, center, progress):
+    cv2.ellipse(frame, center, (35, 35), -90, 0, 360 * progress, (0, 255, 255), 4)
+
+
+cap = cv2.VideoCapture(0)
+tracker = HandTracker()
+canvas = None
+prev = None
+wand = False
+latched = False  # stops one fist hold from toggling repeatedly
+start = time.time()
+
+while True:
     ok, frame = cap.read()
     if not ok:
-        raise SystemExit("Could not open the camera.")
+        break
+    frame = cv2.flip(frame, 1)
+    if canvas is None:
+        canvas = np.zeros_like(frame)
 
-    h, w = frame.shape[:2]
-    tracker = HandTracker()
-    canvas = Canvas(w, h)
-    color = (255, 0, 255)  # BGR. TODO: toolbar to change this
-    start = last = time.time()
+    hands = tracker.detect(frame, (time.time() - start) * 1000)
+    fists = [h for h in hands if not any(up(h, t) for t in (8, 12, 16, 20))]
+    palms = [h for h in hands if all(up(h, t) for t in (8, 12, 16, 20))]
 
-    while True:
-        ok, frame = cap.read()
-        if not ok:
-            break
-        frame = cv2.flip(frame, 1)  # mirror so it feels natural
+    toggle = hold("fist", bool(fists), TOGGLE_SECS)
+    if toggle == 1 and not latched:
+        wand, latched = not wand, True
+    elif toggle == 0:
+        latched = False
+    clear = hold("clear", wand and len(palms) == 2, CLEAR_SECS)
+    erasers = [  # index + middle up: erase at the point between the two fingertips
+        ((h[8][0] + h[12][0]) // 2, (h[8][1] + h[12][1]) // 2)
+        for h in hands
+        if wand and up(h, 8) and up(h, 12) and not (up(h, 16) or up(h, 20))
+    ]
 
-        tracker.process(frame, (time.time() - start) * 1000)
-        lm = tracker.landmarks_px(frame)
-        fingers = tracker.fingers_up(lm)
+    if clear == 1:
+        canvas[:] = 0
+    for e in erasers:
+        cv2.circle(canvas, e, ERASE_RADIUS, 0, cv2.FILLED)
+    pt = next((h[8] for h in hands if up(h, 8) and not any(up(h, t) for t in (12, 16, 20))), None)
+    pt = pt if wand else None
+    if pt and prev:
+        cv2.line(canvas, prev, pt, COLOR, 8)
+    prev = pt
 
-        if lm:
-            tip = lm[8]  # index fingertip
-            if fingers[1:] == [1, 0, 0, 0]:  # index only -> draw
-                canvas.draw_to(tip, color)
-            elif all(fingers):  # open palm -> clear
-                canvas.clear()
-            else:  # anything else -> hover
-                canvas.lift()
-            cv2.circle(frame, tip, 10, color, cv2.FILLED)
-        else:
-            canvas.lift()
+    drawn = canvas.any(axis=2)
+    frame[drawn] = canvas[drawn]
+    for h in hands:
+        for a, b in HAND_LINES:
+            cv2.line(frame, h[a], h[b], (0, 255, 0), 2)
+        for p in h:
+            cv2.circle(frame, p, 4, (0, 0, 255), cv2.FILLED)
+    if toggle:
+        ring(frame, fists[0][9], toggle)
+    if 0 < clear < 1:
+        for h in palms:
+            ring(frame, h[9], clear)
+    for e in erasers:
+        cv2.circle(frame, e, ERASE_RADIUS, (255, 255, 255), 2)
+    label, color = ("WAND ON", (0, 255, 0)) if wand else ("WAND OFF", (0, 0, 255))
+    cv2.putText(frame, label, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
 
-        out = canvas.overlay(frame)
-        # tracker.draw_landmarks(out)  # uncomment to debug landmarks
+    cv2.imshow("MahiKamay", frame)
+    key = cv2.waitKey(1) & 0xFF
+    if key == ord("q"):
+        break
+    if key == ord("c"):
+        canvas[:] = 0
 
-        now = time.time()
-        fps = 1 / max(now - last, 1e-6)
-        last = now
-        cv2.putText(out, f"FPS {fps:.0f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
-
-        cv2.imshow("MahiKamay", out)
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord("q"):
-            break
-        if key == ord("c"):
-            canvas.clear()
-        if key == ord("s"):
-            cv2.imwrite(f"drawing_{int(now)}.png", canvas.img)
-
-    cap.release()
-    cv2.destroyAllWindows()
-
-
-if __name__ == "__main__":
-    main()
+cap.release()
+cv2.destroyAllWindows()

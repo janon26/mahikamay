@@ -14,13 +14,15 @@ transparent canvas (NumPy) -> blend canvas over the live frame (OpenCV) -> show 
 | MediaPipe | 21 hand landmarks per hand, real-time on CPU |
 | NumPy | canvas array + masking/blending |
 
-## Gestures (first pass)
+## Gestures
+The wand starts off. Nothing draws, erases or clears until it is switched on.
+
 | Gesture | Action |
 |---|---|
-| Index finger up only | **Draw** |
-| Index + middle up | **Hover / select** (move without drawing, pick color from top bar) |
-| Open palm (all 5 up) | **Clear** canvas (maybe hold ~1s) |
-| Fist | Pause |
+| Fist held ~0.7s | **Toggle** wand on/off |
+| Index finger up only (wand on) | **Draw** |
+| Index + middle up (wand on) | **Erase** a small circle at the fingertips |
+| Two open palms held ~1s (wand on) | **Clear** the whole canvas |
 
 ## Milestones
 1. **Camera** — open webcam, flip (mirror) it, show FPS. Press `q` to quit.
@@ -41,16 +43,13 @@ transparent canvas (NumPy) -> blend canvas over the live frame (OpenCV) -> show 
 ## Known gotchas
 - Mirror the frame (`cv2.flip(frame, 1)`) or drawing feels backwards
 - MediaPipe wants RGB, OpenCV gives BGR
-- Newer MediaPipe releases are moving from `mp.solutions` to the Tasks API — pinned an older
-  version for now; migrate later if needed
+- MediaPipe 1.x only has the Tasks API (`mp.solutions` is gone); the hand model downloads on first run
 - Jittery fingertip -> needs smoothing
 - Lighting matters a lot for detection
 
 ## Layout
 ```
 src/
-  main.py          # loop: capture -> detect -> draw -> show
-  hand_tracker.py  # MediaPipe wrapper: landmarks, fingers_up()
-  canvas.py        # NumPy canvas, draw/erase/clear, overlay
-  toolbar.py       # color picker UI (later)
+  main.py          # capture -> detect -> draw -> show
+  hand_tracker.py  # MediaPipe wrapper: returns hand landmarks
 ```
