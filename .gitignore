@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+drawing_*.png
+*.mp4
