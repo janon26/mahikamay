@@ -4,3 +4,4 @@ __pycache__/
 venv/
 drawing_*.png
 *.mp4
+models/

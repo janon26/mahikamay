@@ -20,7 +20,7 @@ def main():
     tracker = HandTracker()
     canvas = Canvas(w, h)
     color = (255, 0, 255)  # BGR. TODO: toolbar to change this
-    last = time.time()
+    start = last = time.time()
 
     while True:
         ok, frame = cap.read()
@@ -28,7 +28,7 @@ def main():
             break
         frame = cv2.flip(frame, 1)  # mirror so it feels natural
 
-        tracker.process(frame)
+        tracker.process(frame, (time.time() - start) * 1000)
         lm = tracker.landmarks_px(frame)
         fingers = tracker.fingers_up(lm)
 
