@@ -14,8 +14,8 @@ The wand starts **off**. Hold a **right-hand fist** for ~0.7s to toggle it on or
 With the wand on (right hand):
 - **Index finger only** draws
 - **Index + middle finger up** erases a small circle between the two fingertips
-- **Open palm** held ~1.5s clears everything
+- **Both hands open (two palms)** held ~1s clears everything
 
-**Left hand:** pinch thumb and index together or apart to change the brush size. A preview dot between your fingertips shows the current size.
+**Left hand:** pinch thumb and index together or apart, with the other three fingers folded, to change the brush size. Any other left-hand pose keeps the last size. A dot between your fingertips shows the current size.
 
 See [PLAN.md](PLAN.md) for the roadmap.
