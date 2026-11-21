@@ -1,3 +1,4 @@
+import math
 import time
 
 import cv2
@@ -7,7 +8,8 @@ from hand_tracker import HAND_LINES, HandTracker
 
 COLOR = (255, 0, 255)  # BGR
 ERASE_RADIUS = 25
-TOGGLE_SECS, CLEAR_SECS = 0.7, 1.0
+MIN_BRUSH, MAX_BRUSH = 2, 40
+TOGGLE_SECS, CLEAR_SECS = 0.7, 1.5
 
 since = {}  # when each gesture started being held
 
@@ -34,6 +36,7 @@ canvas = None
 prev = None
 wand = False
 latched = False  # stops one fist hold from toggling repeatedly
+brush = 8.0
 start = time.time()
 
 while True:
@@ -45,45 +48,51 @@ while True:
         canvas = np.zeros_like(frame)
 
     hands = tracker.detect(frame, (time.time() - start) * 1000)
-    fists = [h for h in hands if not any(up(h, t) for t in (8, 12, 16, 20))]
-    palms = [h for h in hands if all(up(h, t) for t in (8, 12, 16, 20))]
+    left, right = hands.get("Right"), hands.get("Left")  # swapped: MediaPipe's labels are mirrored here
 
-    toggle = hold("fist", bool(fists), TOGGLE_SECS)
+    # Left hand: pinch thumb and index together or apart to set the brush size.
+    if left:
+        span = max(math.dist(left[0], left[9]), 1)  # hand size, so distance to camera matters less
+        pinch = math.dist(left[4], left[8]) / span
+        brush += 0.3 * (np.interp(pinch, (0.15, 1.0), (MIN_BRUSH, MAX_BRUSH)) - brush)
+
+    # Right hand: all the gestures.
+    index, middle, ring_, pinky = (right and up(right, t) for t in (8, 12, 16, 20))
+    fist = bool(right) and not (index or middle or ring_ or pinky)
+    palm = bool(right) and index and middle and ring_ and pinky
+    toggle = hold("fist", fist, TOGGLE_SECS)
     if toggle == 1 and not latched:
         wand, latched = not wand, True
     elif toggle == 0:
         latched = False
-    clear = hold("clear", wand and len(palms) == 2, CLEAR_SECS)
-    erasers = [  # index + middle up: erase at the point between the two fingertips
-        ((h[8][0] + h[12][0]) // 2, (h[8][1] + h[12][1]) // 2)
-        for h in hands
-        if wand and up(h, 8) and up(h, 12) and not (up(h, 16) or up(h, 20))
-    ]
+    clear = hold("clear", wand and palm, CLEAR_SECS)
 
     if clear == 1:
         canvas[:] = 0
-    for e in erasers:
-        cv2.circle(canvas, e, ERASE_RADIUS, 0, cv2.FILLED)
-    pt = next((h[8] for h in hands if up(h, 8) and not any(up(h, t) for t in (12, 16, 20))), None)
-    pt = pt if wand else None
+    eraser = None
+    if wand and index and middle and not (ring_ or pinky):  # point between the two fingertips
+        eraser = ((right[8][0] + right[12][0]) // 2, (right[8][1] + right[12][1]) // 2)
+        cv2.circle(canvas, eraser, ERASE_RADIUS, 0, cv2.FILLED)
+    pt = right[8] if wand and index and not (middle or ring_ or pinky) else None
     if pt and prev:
-        cv2.line(canvas, prev, pt, COLOR, 8)
+        cv2.line(canvas, prev, pt, COLOR, int(brush))
     prev = pt
 
     drawn = canvas.any(axis=2)
     frame[drawn] = canvas[drawn]
-    for h in hands:
+    for pts in hands.values():
         for a, b in HAND_LINES:
-            cv2.line(frame, h[a], h[b], (0, 255, 0), 2)
-        for p in h:
+            cv2.line(frame, pts[a], pts[b], (0, 255, 0), 2)
+        for p in pts:
             cv2.circle(frame, p, 4, (0, 0, 255), cv2.FILLED)
-    if toggle:
-        ring(frame, fists[0][9], toggle)
-    if 0 < clear < 1:
-        for h in palms:
-            ring(frame, h[9], clear)
-    for e in erasers:
-        cv2.circle(frame, e, ERASE_RADIUS, (255, 255, 255), 2)
+    if left:  # show the pinch and a preview of the brush size between the fingertips
+        cv2.line(frame, left[4], left[8], (0, 255, 255), 2)
+        mid = ((left[4][0] + left[8][0]) // 2, (left[4][1] + left[8][1]) // 2)
+        cv2.circle(frame, mid, max(int(brush / 2), 1), COLOR, cv2.FILLED)
+    if 0 < max(toggle, clear) < 1 or toggle == 1:
+        ring(frame, right[9], max(toggle, clear))
+    if eraser:
+        cv2.circle(frame, eraser, ERASE_RADIUS, (255, 255, 255), 2)
     label, color = ("WAND ON", (0, 255, 0)) if wand else ("WAND OFF", (0, 0, 255))
     cv2.putText(frame, label, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
 

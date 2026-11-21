@@ -17,12 +17,13 @@ transparent canvas (NumPy) -> blend canvas over the live frame (OpenCV) -> show 
 ## Gestures
 The wand starts off. Nothing draws, erases or clears until it is switched on.
 
-| Gesture | Action |
-|---|---|
-| Fist held ~0.7s | **Toggle** wand on/off |
-| Index finger up only (wand on) | **Draw** |
-| Index + middle up (wand on) | **Erase** a small circle at the fingertips |
-| Two open palms held ~1s (wand on) | **Clear** the whole canvas |
+| Hand | Gesture | Action |
+|---|---|---|
+| Right | Fist held ~0.7s | **Toggle** wand on/off |
+| Right | Index finger up only (wand on) | **Draw** |
+| Right | Index + middle up (wand on) | **Erase** a small circle at the fingertips |
+| Right | Open palm held ~1.5s (wand on) | **Clear** the whole canvas |
+| Left | Pinch thumb + index in/out | **Brush size**, with a live preview |
 
 ## Milestones
 1. **Camera** — open webcam, flip (mirror) it, show FPS. Press `q` to quit.

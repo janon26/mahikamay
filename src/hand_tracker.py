@@ -25,8 +25,14 @@ class HandTracker:
         )
 
     def detect(self, frame, ms):
-        """Return a list of up to 2 hands, each 21 pixel (x, y) points."""
+        """Return {"Left": points, "Right": points} for the hands seen (21 pixel (x, y) points each).
+
+        Expects a mirrored (selfie-view) frame, so the labels match your real hands.
+        """
         image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         h, w = frame.shape[:2]
-        found = self.landmarker.detect_for_video(image, int(ms)).hand_landmarks
-        return [[(int(p.x * w), int(p.y * h)) for p in hand] for hand in found]
+        found = self.landmarker.detect_for_video(image, int(ms))
+        return {
+            side[0].category_name: [(int(p.x * w), int(p.y * h)) for p in pts]
+            for side, pts in zip(found.handedness, found.hand_landmarks)
+        }
