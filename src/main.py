@@ -6,6 +6,7 @@ import numpy as np
 
 from hand_tracker import HAND_LINES, HandTracker
 
+WINDOW, WINDOW_SIZE = "MahiKamay", (960, 720)
 COLOR = (255, 0, 255)  # BGR
 ERASE_RADIUS = 25
 MIN_BRUSH, MAX_BRUSH = 2, 40
@@ -31,6 +32,8 @@ def ring(frame, center, progress):
 
 
 cap = cv2.VideoCapture(0)
+cv2.namedWindow(WINDOW, cv2.WINDOW_NORMAL)  # resizable: drag the corners to change the size
+cv2.resizeWindow(WINDOW, *WINDOW_SIZE)
 tracker = HandTracker()
 canvas = None
 prev = None
@@ -100,7 +103,7 @@ while True:
     label, color = ("WAND ON", (0, 255, 0)) if wand else ("WAND OFF", (0, 0, 255))
     cv2.putText(frame, label, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
 
-    cv2.imshow("MahiKamay", frame)
+    cv2.imshow(WINDOW, frame)
     key = cv2.waitKey(1) & 0xFF
     if key == ord("q"):
         break
