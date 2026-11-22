@@ -6,9 +6,12 @@ import numpy as np
 
 from hand_tracker import HAND_LINES, HandTracker
 
-WINDOW, WINDOW_SIZE = "MahiKamay", (960, 720)
+WINDOW = "MahiKamay"
+CAMERA_SIZE = (1280, 720)  # the most this camera delivers
 COLOR = (255, 0, 255)  # BGR
+# Sizes below are in pixels for a 640-wide frame; px() scales them to the real frame width.
 ERASE_RADIUS = 25
+TOGETHER = 0.3  # erase only if index and middle fingertips are closer than this fraction of palm length
 MIN_BRUSH, MAX_BRUSH = 2, 40
 TOGGLE_SECS, CLEAR_SECS = 0.7, 1.0
 
@@ -27,19 +30,64 @@ def hold(name, active, secs):
     return min((time.time() - since.setdefault(name, time.time())) / secs, 1)
 
 
+scale = 1.0
+
+
+def px(n):
+    return max(round(n * scale), 1)
+
+
 def ring(frame, center, progress):
-    cv2.ellipse(frame, center, (35, 35), -90, 0, 360 * progress, (0, 255, 255), 4)
+    cv2.ellipse(frame, center, (px(35), px(35)), -90, 0, 360 * progress, (0, 255, 255), px(4), cv2.LINE_AA)
+
+
+HELP = [
+    "WAND on/off: right fist, hold 0.7s",
+    "DRAW: right index finger up",
+    "ERASE: right index + middle up, together",
+    "CLEAR: both palms open, hold 1s",
+    "BRUSH SIZE: left thumb + index pinch",
+    "   (other 3 fingers folded)",
+    "q = quit    spacebar = clear",
+]
+mouse = (-1, -1)
+
+
+def on_mouse(event, x, y, flags, param):
+    global mouse
+    mouse = (x, y)
+
+
+def draw_help(frame):
+    """A hollow ? icon in the bottom-left corner; hovering it shows the instructions."""
+    k = frame.shape[1] / 640  # layout was designed for a 640-wide frame
+    center, r = (int(30 * k), frame.shape[0] - int(30 * k)), int(16 * k)
+    white = (255, 255, 255)
+    cv2.circle(frame, center, r, white, 2, cv2.LINE_AA)
+    (tw, th), _ = cv2.getTextSize("?", cv2.FONT_HERSHEY_SIMPLEX, 0.7 * k, 2)
+    cv2.putText(frame, "?", (center[0] - tw // 2, center[1] + th // 2), cv2.FONT_HERSHEY_SIMPLEX, 0.7 * k, white, 2, cv2.LINE_AA)
+    if math.dist(mouse, center) <= r:
+        x0, y1 = int(10 * k), center[1] - r - int(10 * k)
+        y0 = y1 - int((len(HELP) * 22 + 16) * k)
+        frame[y0:y1, x0 : x0 + int(330 * k)] //= 3  # darken the area behind the text
+        for i, line in enumerate(HELP):
+            cv2.putText(frame, line, (x0 + int(10 * k), y0 + int((28 + i * 22) * k)), cv2.FONT_HERSHEY_SIMPLEX, 0.5 * k, white, 1, cv2.LINE_AA)
 
 
 cap = cv2.VideoCapture(0)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_SIZE[0])
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_SIZE[1])
+width, height = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+scale = width / 640
 cv2.namedWindow(WINDOW, cv2.WINDOW_NORMAL)  # resizable: drag the corners to change the size
-cv2.resizeWindow(WINDOW, *WINDOW_SIZE)
+cv2.resizeWindow(WINDOW, width, height)
+cv2.setMouseCallback(WINDOW, on_mouse)
 tracker = HandTracker()
 canvas = None
 prev = None
 wand = False
 latched = False  # stops one fist hold from toggling repeatedly
-brush = 8.0
+brush = 8.0 * scale
 start = time.time()
 
 while True:
@@ -58,7 +106,7 @@ while True:
     if left and not any(up(left, t) for t in (12, 16, 20)):
         span = max(math.dist(left[0], left[9]), 1)  # hand size, so distance to camera matters less
         pinch = math.dist(left[4], left[8]) / span
-        brush += 0.3 * (np.interp(pinch, (0.15, 1.0), (MIN_BRUSH, MAX_BRUSH)) - brush)
+        brush += 0.3 * (np.interp(pinch, (0.15, 1.0), (px(MIN_BRUSH), px(MAX_BRUSH))) - brush)
 
     # Right hand: all the gestures.
     index, middle, ring_, pinky = (right and up(right, t) for t in (8, 12, 16, 20))
@@ -74,9 +122,10 @@ while True:
     if clear == 1:
         canvas[:] = 0
     eraser = None
-    if wand and index and middle and not (ring_ or pinky):  # point between the two fingertips
+    together = bool(right) and math.dist(right[8], right[12]) < TOGETHER * math.dist(right[0], right[9])
+    if wand and index and middle and together and not (ring_ or pinky):  # point between the two fingertips
         eraser = ((right[8][0] + right[12][0]) // 2, (right[8][1] + right[12][1]) // 2)
-        cv2.circle(canvas, eraser, ERASE_RADIUS, 0, cv2.FILLED)
+        cv2.circle(canvas, eraser, px(ERASE_RADIUS), 0, cv2.FILLED)
     pt = right[8] if wand and index and not (middle or ring_ or pinky) else None
     if pt and prev:
         cv2.line(canvas, prev, pt, COLOR, int(brush))
@@ -86,11 +135,11 @@ while True:
     frame[drawn] = canvas[drawn]
     for pts in hands.values():
         for a, b in HAND_LINES:
-            cv2.line(frame, pts[a], pts[b], (0, 255, 0), 2)
+            cv2.line(frame, pts[a], pts[b], (0, 255, 0), px(2), cv2.LINE_AA)
         for p in pts:
-            cv2.circle(frame, p, 4, (0, 0, 255), cv2.FILLED)
+            cv2.circle(frame, p, px(4), (0, 0, 255), cv2.FILLED, cv2.LINE_AA)
     if left:  # show the thumb-index line and the current brush size between the fingertips
-        cv2.line(frame, left[4], left[8], (0, 255, 255), 2)
+        cv2.line(frame, left[4], left[8], (0, 255, 255), px(2), cv2.LINE_AA)
         mid = ((left[4][0] + left[8][0]) // 2, (left[4][1] + left[8][1]) // 2)
         cv2.circle(frame, mid, max(int(brush / 2), 1), COLOR, cv2.FILLED)
     if toggle:
@@ -99,15 +148,15 @@ while True:
         for h in (left, right):
             ring(frame, h[9], clear)
     if eraser:
-        cv2.circle(frame, eraser, ERASE_RADIUS, (255, 255, 255), 2)
+        cv2.circle(frame, eraser, px(ERASE_RADIUS), (255, 255, 255), px(2), cv2.LINE_AA)
     label, color = ("WAND ON", (0, 255, 0)) if wand else ("WAND OFF", (0, 0, 255))
-    cv2.putText(frame, label, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
-
+    cv2.putText(frame, label, (px(10), px(30)), cv2.FONT_HERSHEY_SIMPLEX, 0.9 * scale, color, px(2), cv2.LINE_AA)
+    draw_help(frame)
     cv2.imshow(WINDOW, frame)
     key = cv2.waitKey(1) & 0xFF
     if key == ord("q"):
         break
-    if key == ord("c"):
+    if key == ord(" "):
         canvas[:] = 0
 
 cap.release()

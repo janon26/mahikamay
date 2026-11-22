@@ -21,7 +21,7 @@ The wand starts off. Nothing draws, erases or clears until it is switched on.
 |---|---|---|
 | Right | Fist held ~0.7s | **Toggle** wand on/off |
 | Right | Index finger up only (wand on) | **Draw** |
-| Right | Index + middle up (wand on) | **Erase** a small circle at the fingertips |
+| Right | Index + middle up, fingertips together (wand on) | **Erase** a small circle at the fingertips |
 | Both | Two open palms held ~1s (wand on) | **Clear** the whole canvas |
 | Left | Pinch thumb + index in/out, other fingers folded | **Brush size**, with a live preview; other poses keep the last size |
 
