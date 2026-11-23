@@ -83,13 +83,13 @@ def on_mouse(event, x, y, flags, param):
 def draw_help(frame):
     """A hollow ? icon in the bottom-left corner; hovering it shows the instructions."""
     k = frame.shape[1] / 640  # layout was designed for a 640-wide frame
-    center, r = (int(30 * k), frame.shape[0] - int(30 * k)), int(16 * k)
+    center, r = (int(20 * k), frame.shape[0] - int(20 * k)), int(12 * k)
     white = (255, 255, 255)
-    cv2.circle(frame, center, r, white, 2, cv2.LINE_AA)
-    (tw, th), _ = cv2.getTextSize("?", cv2.FONT_HERSHEY_SIMPLEX, 0.7 * k, 2)
-    cv2.putText(frame, "?", (center[0] - tw // 2, center[1] + th // 2), cv2.FONT_HERSHEY_SIMPLEX, 0.7 * k, white, 2, cv2.LINE_AA)
+    cv2.circle(frame, center, r, white, max(int(1.5 * k), 1), cv2.LINE_AA)
+    (tw, th), _ = cv2.getTextSize("?", cv2.FONT_HERSHEY_SIMPLEX, 0.5 * k, 2)
+    cv2.putText(frame, "?", (center[0] - tw // 2, center[1] + th // 2), cv2.FONT_HERSHEY_SIMPLEX, 0.5 * k, white, max(int(1.5 * k), 1), cv2.LINE_AA)
     if math.dist(mouse, center) <= r:
-        x0, y1 = int(10 * k), center[1] - r - int(10 * k)
+        x0, y1 = int(8 * k), center[1] - r - int(8 * k)
         y0 = y1 - int((len(HELP) * 22 + 16) * k)
         frame[y0:y1, x0 : x0 + int(330 * k)] //= 3  # darken the area behind the text
         for i, line in enumerate(HELP):
