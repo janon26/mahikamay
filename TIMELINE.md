@@ -1,0 +1,40 @@
+# MahiKamay: 2-Week Improvement Timeline
+
+**24 Nov 2026 to 7 Dec 2026**, two sessions a day (28 in total), about 30 to 45 minutes each.
+
+## How to use this
+- One small improvement per session. If one runs long, shrink it, don't spill it into the next slot.
+- End every session with a test run, then a commit and a push.
+- Keep the key bindings below so nothing clashes: `s` save, `u` undo, `y` redo, `h` skeleton, `g` glow, `w` rainbow, `b` background, `r` record, `f` FPS, `k` calibrate, `[` `]` eraser size. Existing keys: `q` quit, `c` clear.
+
+## Week 1 (24 to 30 Nov): make it feel good and keep your work
+
+| Date | Morning | Evening |
+|---|---|---|
+| Tue 24 Nov | Remember brush size and colour between runs (small settings file, git-ignored) | Smooth the drawn line by averaging the last few fingertip positions to remove jitter |
+| Wed 25 Nov | Cursor dot at the index fingertip, in the current colour and brush size, so you see where ink will land | Undo the last stroke with `u` (store strokes as a list) |
+| Thu 26 Nov | Save the drawing as a transparent PNG with `s` into a `drawings/` folder | Show a short "Saved!" message on screen after saving |
+| Fri 27 Nov | Toggle the hand skeleton on and off with `h` | Adjustable eraser size with `[` and `]` |
+| Sat 28 Nov | Mirror mode: toggle key (`m`) to flip the canvas horizontally, handy for symmetrical drawings | Round, anti-aliased brush ends for nicer strokes |
+| Sun 29 Nov | Move tunable numbers (timings, thresholds, sizes) into one `config.py` | Friendly error if no camera is found, plus a `--camera N` option |
+| Mon 30 Nov | Move gesture checks (finger up, together, pinch) into `gestures.py` as pure functions | Unit tests for those gestures using fake landmark data. Review week 1, push |
+
+## Week 2 (1 to 7 Dec): new features and polish
+
+| Date | Morning | Evening |
+|---|---|---|
+| Tue 1 Dec | Keep left and right hands stable across frames (fallback by screen side) so labels don't flip | Calibrate the pinch range with `k` (record your min and max pinch) |
+| Wed 2 Dec | Glow brush mode with `g` (soft neon halo) | Rainbow brush mode with `w` (colour cycles as you draw) |
+| Thu 3 Dec | Background modes with `b`: camera, dark, whiteboard | Record the session to an MP4 with `r` |
+| Fri 4 Dec | FPS counter with `f`, and check you stay at 25 fps or more | Redo with `y` |
+| Sat 5 Dec | First-run tutorial overlay that fades after about 10 seconds | Brief visual flash when the wand toggles on or off |
+| Sun 6 Dec | README: screenshots or a GIF, plus a feature list | Code tidy pass: remove dead code, check line count, format |
+| Mon 7 Dec | Full run-through: test every gesture for 10 minutes, fix the top 3 annoyances | Tag **v0.2**, final push, write a "what's next" list |
+
+## Checkpoints
+- **Sun 29 Nov:** everything so far saves, undoes and survives a restart.
+- **Mon 30 Nov:** gestures are tested and week 1 is pushed.
+- **Mon 7 Dec:** v0.2 tagged, with README demo.
+
+## If you fall behind
+Drop, in this order: the glow brush, the rainbow brush, recording, the tutorial overlay. Never drop the tests (30 Nov) or the final run-through (7 Dec).
