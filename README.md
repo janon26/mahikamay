@@ -18,6 +18,8 @@ With the wand on (right hand):
 
 **Left hand:** pinch thumb and index together or apart, with the other three fingers folded, to change the brush size. Any other left-hand pose keeps the last size. A dot between your fingertips shows the current size.
 
+**Colours (left hand):** raise **only your pinky** to open a quarter-circle colour menu in the bottom-left corner (red, orange, yellow, green, blue, violet). The menu follows your pinky's angle: parallel to the left edge (straight up) is red, and tilting it right toward the bottom edge goes through orange, yellow, green and blue to violet. Lower the pinky to close the menu; the chosen colour stays. Brush size is paused while the menu is open.
+
 Hover over the **?** in the bottom-left corner of the window to see these instructions.
 
 See [PLAN.md](PLAN.md) for the roadmap.

@@ -8,7 +8,9 @@ from hand_tracker import HAND_LINES, HandTracker
 
 WINDOW = "MahiKamay"
 CAMERA_SIZE = (1280, 720)  # the most this camera delivers
-COLOR = (255, 0, 255)  # BGR
+COLORS = [  # BGR: red, orange, yellow, green, blue, violet
+    (0, 0, 255), (0, 128, 255), (0, 255, 255), (0, 200, 0), (255, 0, 0), (211, 0, 148),
+]
 # Sizes below are in pixels for a 640-wide frame; px() scales them to the real frame width.
 ERASE_RADIUS = 25
 TOGETHER = 0.3  # erase only if index and middle fingertips are closer than this fraction of palm length
@@ -41,6 +43,24 @@ def ring(frame, center, progress):
     cv2.ellipse(frame, center, (px(35), px(35)), -90, 0, 360 * progress, (0, 255, 255), px(4), cv2.LINE_AA)
 
 
+def arc(r, a0, a1, h):
+    """Points on a circle of radius r around the bottom-left corner, angles in degrees from the bottom edge."""
+    return [(int(r * math.cos(math.radians(a))), int(h - r * math.sin(math.radians(a)))) for a in np.linspace(a0, a1, 8)]
+
+
+def draw_menu(frame, selected):
+    """Quarter ring in the bottom-left corner: red along the left edge down to violet along the bottom edge."""
+    overlay = frame.copy()
+    for i, color in enumerate(COLORS):
+        top, bottom = 90 - 15 * i, 90 - 15 * (i + 1)
+        outer = px(130 if i == selected else 120)  # the chosen slice sticks out a little
+        slice_ = np.array(arc(outer, bottom, top, frame.shape[0]) + arc(px(50), top, bottom, frame.shape[0]), np.int32)
+        cv2.fillPoly(overlay, [slice_], color, cv2.LINE_AA)
+        if i == selected:
+            cv2.polylines(overlay, [slice_], True, (255, 255, 255), px(2), cv2.LINE_AA)
+    cv2.addWeighted(overlay, 0.8, frame, 0.2, 0, frame)
+
+
 HELP = [
     "WAND on/off: right fist, hold 0.7s",
     "DRAW: right index finger up",
@@ -48,6 +68,8 @@ HELP = [
     "CLEAR: both palms open, hold 1s",
     "BRUSH SIZE: left thumb + index pinch",
     "   (other 3 fingers folded)",
+    "COLOR: left pinky only up,",
+    "   tilt it left/right to pick",
     "q = quit    spacebar = clear",
 ]
 mouse = (-1, -1)
@@ -88,6 +110,8 @@ prev = None
 wand = False
 latched = False  # stops one fist hold from toggling repeatedly
 brush = 8.0 * scale
+ink = COLORS[5]  # current colour
+pinky_angle = None  # smoothed tilt of the left pinky while the colour menu is open
 start = time.time()
 
 while True:
@@ -101,9 +125,20 @@ while True:
     hands = tracker.detect(frame, (time.time() - start) * 1000)
     left, right = hands.get("Right"), hands.get("Left")  # swapped: MediaPipe's labels are mirrored here
 
+    # Left pinky only up: open the colour menu and pick by pinky tilt (the pinky being up also pauses brush size).
+    # The pinky counts as up when extended in any direction, so it can point sideways to reach violet.
+    pinky_only = bool(left) and math.dist(left[0], left[20]) > math.dist(left[0], left[18]) and not any(up(left, t) for t in (8, 12, 16))
+    if pinky_only:
+        tilt = math.degrees(math.atan2(left[17][1] - left[20][1], left[20][0] - left[17][0]))  # 90 = parallel to the left edge, 0 = parallel to the bottom edge
+        pinky_angle = tilt if pinky_angle is None else pinky_angle + 0.3 * (tilt - pinky_angle)
+        selected = int(np.clip((90 - np.clip(pinky_angle, 0, 90)) / 15, 0, 5))  # same angle as the menu: 90 = red, 0 = violet
+        ink = COLORS[selected]
+    else:
+        pinky_angle = None
+
     # Left hand: pinch thumb and index together or apart to set the brush size.
     # Only counts with the other three fingers folded; any other pose keeps the last size.
-    if left and not any(up(left, t) for t in (12, 16, 20)):
+    if left and not pinky_only and not any(up(left, t) for t in (12, 16, 20)):
         span = max(math.dist(left[0], left[9]), 1)  # hand size, so distance to camera matters less
         pinch = math.dist(left[4], left[8]) / span
         brush += 0.3 * (np.interp(pinch, (0.15, 1.0), (px(MIN_BRUSH), px(MAX_BRUSH))) - brush)
@@ -128,7 +163,7 @@ while True:
         cv2.circle(canvas, eraser, px(ERASE_RADIUS), 0, cv2.FILLED)
     pt = right[8] if wand and index and not (middle or ring_ or pinky) else None
     if pt and prev:
-        cv2.line(canvas, prev, pt, COLOR, int(brush))
+        cv2.line(canvas, prev, pt, ink, int(brush))
     prev = pt
 
     drawn = canvas.any(axis=2)
@@ -141,7 +176,7 @@ while True:
     if left:  # show the thumb-index line and the current brush size between the fingertips
         cv2.line(frame, left[4], left[8], (0, 255, 255), px(2), cv2.LINE_AA)
         mid = ((left[4][0] + left[8][0]) // 2, (left[4][1] + left[8][1]) // 2)
-        cv2.circle(frame, mid, max(int(brush / 2), 1), COLOR, cv2.FILLED)
+        cv2.circle(frame, mid, max(int(brush / 2), 1), ink, cv2.FILLED)
     if toggle:
         ring(frame, right[9], toggle)
     if 0 < clear < 1:
@@ -149,8 +184,10 @@ while True:
             ring(frame, h[9], clear)
     if eraser:
         cv2.circle(frame, eraser, px(ERASE_RADIUS), (255, 255, 255), px(2), cv2.LINE_AA)
-    label, color = ("WAND ON", (0, 255, 0)) if wand else ("WAND OFF", (0, 0, 255))
-    cv2.putText(frame, label, (px(10), px(30)), cv2.FONT_HERSHEY_SIMPLEX, 0.9 * scale, color, px(2), cv2.LINE_AA)
+    if pinky_angle is not None:
+        draw_menu(frame, selected)
+    label, label_color = ("WAND ON", (0, 255, 0)) if wand else ("WAND OFF", (0, 0, 255))
+    cv2.putText(frame, label, (px(10), px(30)), cv2.FONT_HERSHEY_SIMPLEX, 0.9 * scale, label_color, px(2), cv2.LINE_AA)
     draw_help(frame)
     cv2.imshow(WINDOW, frame)
     key = cv2.waitKey(1) & 0xFF
