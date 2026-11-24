@@ -1,5 +1,7 @@
 import math
+import json
 import time
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -16,6 +18,7 @@ ERASE_RADIUS = 25
 TOGETHER = 0.3  # erase only if index and middle fingertips are closer than this fraction of palm length
 MIN_BRUSH, MAX_BRUSH = 2, 40
 TOGGLE_SECS, CLEAR_SECS = 0.7, 1.0
+SETTINGS_FILE = Path(__file__).resolve().parent.parent / "settings.json"
 
 since = {}  # when each gesture started being held
 
@@ -37,6 +40,33 @@ scale = 1.0
 
 def px(n):
     return max(round(n * scale), 1)
+
+
+def load_settings():
+    """Load saved brush preferences, falling back to the defaults if needed."""
+    defaults = {"brush_size": 8.0, "color_index": 5}
+    try:
+        with SETTINGS_FILE.open(encoding="utf-8") as file:
+            saved = json.load(file)
+        brush_size = float(saved.get("brush_size", defaults["brush_size"]))
+        color_index = int(saved.get("color_index", defaults["color_index"]))
+        return {
+            "brush_size": min(max(brush_size, MIN_BRUSH), MAX_BRUSH),
+            "color_index": min(max(color_index, 0), len(COLORS) - 1),
+        }
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return defaults
+
+
+def save_settings(brush_size, color_index):
+    """Save preferences without putting machine-specific state into Git."""
+    try:
+        with SETTINGS_FILE.open("w", encoding="utf-8") as file:
+            json.dump({"brush_size": round(brush_size, 2), "color_index": color_index}, file, indent=2)
+            file.write("\n")
+    except OSError:
+        # A read-only directory should not stop the drawing app from running.
+        pass
 
 
 def ring(frame, center, progress):
@@ -101,6 +131,7 @@ cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_SIZE[0])
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_SIZE[1])
 width, height = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 scale = width / 640
+settings = load_settings()
 cv2.namedWindow(WINDOW, cv2.WINDOW_NORMAL)  # resizable: drag the corners to change the size
 cv2.resizeWindow(WINDOW, width, height)
 cv2.setMouseCallback(WINDOW, on_mouse)
@@ -109,8 +140,10 @@ canvas = None
 prev = None
 wand = False
 latched = False  # stops one fist hold from toggling repeatedly
-brush = 8.0 * scale
-ink = COLORS[5]  # current colour
+brush_size = settings["brush_size"]  # stored in 640-wide logical pixels
+brush = brush_size * scale
+selected_color = settings["color_index"]
+ink = COLORS[selected_color]  # current colour
 pinky_angle = None  # smoothed tilt of the left pinky while the colour menu is open
 start = time.time()
 
@@ -132,7 +165,8 @@ while True:
         tilt = math.degrees(math.atan2(left[17][1] - left[20][1], left[20][0] - left[17][0]))  # 90 = parallel to the left edge, 0 = parallel to the bottom edge
         pinky_angle = tilt if pinky_angle is None else pinky_angle + 0.3 * (tilt - pinky_angle)
         selected = int(np.clip((90 - np.clip(pinky_angle, 0, 90)) / 15, 0, 5))  # same angle as the menu: 90 = red, 0 = violet
-        ink = COLORS[selected]
+        selected_color = selected
+        ink = COLORS[selected_color]
     else:
         pinky_angle = None
 
@@ -141,7 +175,8 @@ while True:
     if left and not pinky_only and not any(up(left, t) for t in (12, 16, 20)):
         span = max(math.dist(left[0], left[9]), 1)  # hand size, so distance to camera matters less
         pinch = math.dist(left[4], left[8]) / span
-        brush += 0.3 * (np.interp(pinch, (0.15, 1.0), (px(MIN_BRUSH), px(MAX_BRUSH))) - brush)
+        brush_size += 0.3 * (np.interp(pinch, (0.15, 1.0), (MIN_BRUSH, MAX_BRUSH)) - brush_size)
+        brush = brush_size * scale
 
     # Right hand: all the gestures.
     index, middle, ring_, pinky = (right and up(right, t) for t in (8, 12, 16, 20))
@@ -196,5 +231,6 @@ while True:
     if key == ord(" "):
         canvas[:] = 0
 
+save_settings(brush_size, selected_color)
 cap.release()
 cv2.destroyAllWindows()
