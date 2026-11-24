@@ -200,12 +200,14 @@ while True:
         eraser = ((right[8][0] + right[12][0]) // 2, (right[8][1] + right[12][1]) // 2)
         cv2.circle(canvas, eraser, px(ERASE_RADIUS), 0, cv2.FILLED)
     pt = right[8] if wand and index and not (middle or ring_ or pinky) else None
+    cursor = None
     if pt:
         tip_history.append(pt)
         smooth_pt = tuple(np.mean(tip_history, axis=0).astype(int))
         if prev:
             cv2.line(canvas, prev, smooth_pt, ink, int(brush))
         prev = smooth_pt
+        cursor = smooth_pt
     else:
         tip_history.clear()
         prev = None
@@ -221,6 +223,8 @@ while True:
         cv2.line(frame, left[4], left[8], (0, 255, 255), px(2), cv2.LINE_AA)
         mid = ((left[4][0] + left[8][0]) // 2, (left[4][1] + left[8][1]) // 2)
         cv2.circle(frame, mid, max(int(brush / 2), 1), ink, cv2.FILLED)
+    if cursor:
+        cv2.circle(frame, cursor, max(int(brush / 2), 1), ink, cv2.FILLED, cv2.LINE_AA)
     if toggle:
         ring(frame, right[9], toggle)
     if 0 < clear < 1:
