@@ -9,15 +9,15 @@
 
 ## Week 1 (24 to 30 Nov): make it feel good and keep your work
 
-| Date | Morning | Evening |
-|---|---|---|
-| Tue 24 Nov | Remember brush size and colour between runs (small settings file, git-ignored) | Smooth the drawn line by averaging the last few fingertip positions to remove jitter |
-| Wed 25 Nov | Cursor dot at the index fingertip, in the current colour and brush size, so you see where ink will land | Undo the last stroke with `u` (store strokes as a list) |
-| Thu 26 Nov | Save the drawing as a transparent PNG with `s` into a `drawings/` folder | Show a short "Saved!" message on screen after saving |
-| Fri 27 Nov | Toggle the hand skeleton on and off with `h` | Adjustable eraser size with `[` and `]` |
-| Sat 28 Nov | Mirror mode: toggle key (`m`) to flip the canvas horizontally, handy for symmetrical drawings | Round, anti-aliased brush ends for nicer strokes |
-| Sun 29 Nov | Move tunable numbers (timings, thresholds, sizes) into one `config.py` | Friendly error if no camera is found, plus a `--camera N` option |
-| Mon 30 Nov | Move gesture checks (finger up, together, pinch) into `gestures.py` as pure functions | Unit tests for those gestures using fake landmark data. Review week 1, push |
+| Date       | Morning                                                                                                                        | Evening                                                                              |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| Tue 24 Nov | Remember brush size and colour between runs (small settings file, git-ignored)                                                 | Smooth the drawn line by averaging the last few fingertip positions to remove jitter |
+| Wed 25 Nov | Cursor dot at the index fingertip, in the current colour and brush size, so you see where ink will land                        | Undo the last stroke with `u` (store strokes as a list)                              |
+| Thu 26 Nov | Save the drawing as a transparent PNG with `s` into a `drawings/` folder. Show a short "Saved!" message on screen after saving | When starting, the index finger draws on the way up                                  |
+| Fri 27 Nov | Toggle the hand skeleton on and off with `h`                                                                                   | Adjustable eraser size with `[` and `]`                                              |
+| Sat 28 Nov | Mirror mode: toggle key (`m`) to flip the canvas horizontally, handy for symmetrical drawings                                  | Round, anti-aliased brush ends for nicer strokes                                     |
+| Sun 29 Nov | Move tunable numbers (timings, thresholds, sizes) into one `config.py`                                                         | Friendly error if no camera is found, plus a `--camera N` option                     |
+| Mon 30 Nov | Move gesture checks (finger up, together, pinch) into `gestures.py` as pure functions                                          | Unit tests for those gestures using fake landmark data. Review week 1, push          |
 
 ## Week 2 (1 to 7 Dec): new features and polish
 

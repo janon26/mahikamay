@@ -20,6 +20,9 @@ TOGETHER = 0.3  # erase only if index and middle fingertips are closer than this
 MIN_BRUSH, MAX_BRUSH = 2, 40
 TOGGLE_SECS, CLEAR_SECS = 0.7, 1.0
 SMOOTHING_POINTS = 5
+BRUSH_CONFIRM_SECS = 0.5
+BRUSH_SMOOTHING = 0.2
+BRUSH_STABLE_TOLERANCE = 3.0
 SETTINGS_FILE = Path(__file__).resolve().parent.parent / "settings.json"
 
 since = {}  # when each gesture started being held
@@ -27,6 +30,11 @@ since = {}  # when each gesture started being held
 
 def up(hand, tip):
     return hand[tip][1] < hand[tip - 2][1]  # fingertip above its middle joint
+
+
+def index_fully_extended(hand):
+    """Require both index joints to be straight before arming drawing."""
+    return up(hand, 8) and math.dist(hand[5], hand[8]) > 2.2 * max(math.dist(hand[5], hand[6]), 1)
 
 
 def hold(name, active, secs):
@@ -142,8 +150,13 @@ canvas = None
 prev = None
 wand = False
 latched = False  # stops one fist hold from toggling repeatedly
+draw_armed = False
 brush_size = settings["brush_size"]  # stored in 640-wide logical pixels
 brush = brush_size * scale
+brush_candidate = None
+brush_candidate_since = None
+brush_candidate_confirmed = False
+pinch_size = None
 selected_color = settings["color_index"]
 ink = COLORS[selected_color]  # current colour
 pinky_angle = None  # smoothed tilt of the left pinky while the colour menu is open
@@ -173,13 +186,26 @@ while True:
     else:
         pinky_angle = None
 
-    # Left hand: pinch thumb and index together or apart to set the brush size.
-    # Only counts with the other three fingers folded; any other pose keeps the last size.
+    # Left hand: pinch thumb and index together or apart to preview a brush size.
+    # The size commits only after the pinch position stays steady for a moment.
     if left and not pinky_only and not any(up(left, t) for t in (12, 16, 20)):
         span = max(math.dist(left[0], left[9]), 1)  # hand size, so distance to camera matters less
         pinch = math.dist(left[4], left[8]) / span
-        brush_size += 0.3 * (np.interp(pinch, (0.15, 1.0), (MIN_BRUSH, MAX_BRUSH)) - brush_size)
-        brush = brush_size * scale
+        target_size = float(np.interp(pinch, (0.15, 1.0), (MIN_BRUSH, MAX_BRUSH)))
+        pinch_size = target_size if pinch_size is None else pinch_size + BRUSH_SMOOTHING * (target_size - pinch_size)
+        if brush_candidate is None or abs(pinch_size - brush_candidate) > BRUSH_STABLE_TOLERANCE:
+            brush_candidate = pinch_size
+            brush_candidate_since = time.time()
+            brush_candidate_confirmed = False
+        elif not brush_candidate_confirmed and time.time() - brush_candidate_since >= BRUSH_CONFIRM_SECS:
+            brush_size = brush_candidate
+            brush = brush_size * scale
+            brush_candidate_confirmed = True
+    else:
+        brush_candidate = None
+        brush_candidate_since = None
+        brush_candidate_confirmed = False
+        pinch_size = None
 
     # Right hand: all the gestures.
     index, middle, ring_, pinky = (right and up(right, t) for t in (8, 12, 16, 20))
@@ -188,8 +214,11 @@ while True:
     toggle = hold("fist", fist, TOGGLE_SECS)
     if toggle == 1 and not latched:
         wand, latched = not wand, True
+        draw_armed = False
     elif toggle == 0:
         latched = False
+    if wand and right and index and not (middle or ring_ or pinky) and index_fully_extended(right):
+        draw_armed = True
     clear = hold("clear", wand and both_palms, CLEAR_SECS)
 
     if clear == 1:
@@ -199,7 +228,7 @@ while True:
     if wand and index and middle and together and not (ring_ or pinky):  # point between the two fingertips
         eraser = ((right[8][0] + right[12][0]) // 2, (right[8][1] + right[12][1]) // 2)
         cv2.circle(canvas, eraser, px(ERASE_RADIUS), 0, cv2.FILLED)
-    pt = right[8] if wand and index and not (middle or ring_ or pinky) else None
+    pt = right[8] if wand and draw_armed and index and not (middle or ring_ or pinky) else None
     cursor = None
     if pt:
         tip_history.append(pt)
@@ -222,7 +251,11 @@ while True:
     if left:  # show the thumb-index line and the current brush size between the fingertips
         cv2.line(frame, left[4], left[8], (0, 255, 255), px(2), cv2.LINE_AA)
         mid = ((left[4][0] + left[8][0]) // 2, (left[4][1] + left[8][1]) // 2)
-        cv2.circle(frame, mid, max(int(brush / 2), 1), ink, cv2.FILLED)
+        preview_brush = brush_candidate * scale if brush_candidate is not None else brush
+        cv2.circle(frame, mid, max(int(preview_brush / 2), 1), ink, cv2.FILLED)
+        if brush_candidate is not None and not brush_candidate_confirmed:
+            progress = min((time.time() - brush_candidate_since) / BRUSH_CONFIRM_SECS, 1)
+            ring(frame, mid, progress)
     if cursor:
         cv2.circle(frame, cursor, max(int(brush / 2), 1), ink, cv2.FILLED, cv2.LINE_AA)
     if toggle:
