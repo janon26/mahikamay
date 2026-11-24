@@ -1,6 +1,7 @@
 import math
 import json
 import time
+from collections import deque
 from pathlib import Path
 
 import cv2
@@ -18,6 +19,7 @@ ERASE_RADIUS = 25
 TOGETHER = 0.3  # erase only if index and middle fingertips are closer than this fraction of palm length
 MIN_BRUSH, MAX_BRUSH = 2, 40
 TOGGLE_SECS, CLEAR_SECS = 0.7, 1.0
+SMOOTHING_POINTS = 5
 SETTINGS_FILE = Path(__file__).resolve().parent.parent / "settings.json"
 
 since = {}  # when each gesture started being held
@@ -145,6 +147,7 @@ brush = brush_size * scale
 selected_color = settings["color_index"]
 ink = COLORS[selected_color]  # current colour
 pinky_angle = None  # smoothed tilt of the left pinky while the colour menu is open
+tip_history = deque(maxlen=SMOOTHING_POINTS)
 start = time.time()
 
 while True:
@@ -197,9 +200,15 @@ while True:
         eraser = ((right[8][0] + right[12][0]) // 2, (right[8][1] + right[12][1]) // 2)
         cv2.circle(canvas, eraser, px(ERASE_RADIUS), 0, cv2.FILLED)
     pt = right[8] if wand and index and not (middle or ring_ or pinky) else None
-    if pt and prev:
-        cv2.line(canvas, prev, pt, ink, int(brush))
-    prev = pt
+    if pt:
+        tip_history.append(pt)
+        smooth_pt = tuple(np.mean(tip_history, axis=0).astype(int))
+        if prev:
+            cv2.line(canvas, prev, smooth_pt, ink, int(brush))
+        prev = smooth_pt
+    else:
+        tip_history.clear()
+        prev = None
 
     drawn = canvas.any(axis=2)
     frame[drawn] = canvas[drawn]
