@@ -95,6 +95,18 @@ def redraw_canvas(canvas, strokes):
             cv2.line(canvas, start, end, color, thickness)
 
 
+def save_drawing(canvas):
+    """Save the ink as a transparent PNG, leaving the empty canvas transparent."""
+    drawings_dir = SETTINGS_FILE.parent / "drawings"
+    drawings_dir.mkdir(exist_ok=True)
+    filename = drawings_dir / f"drawing_{time.strftime('%Y%m%d_%H%M%S')}.png"
+    alpha = np.where(canvas.any(axis=2), 255, 0).astype(np.uint8)
+    image = np.dstack((canvas, alpha))
+    if not cv2.imwrite(str(filename), image):
+        raise OSError("OpenCV could not write the drawing")
+    return filename
+
+
 def ring(frame, center, progress):
     cv2.ellipse(frame, center, (px(35), px(35)), -90, 0, 360 * progress, (0, 255, 255), px(4), cv2.LINE_AA)
 
@@ -123,6 +135,7 @@ HELP = [
     "ERASE: right index + middle up, together",
     "CLEAR: both palms open, hold 1s",
     "UNDO: u = remove the last stroke",
+    "SAVE: s = transparent PNG",
     "BRUSH SIZE: left thumb + index pinch",
     "   (other 3 fingers folded)",
     "COLOR: left pinky only up,",
@@ -167,6 +180,8 @@ canvas = None
 prev = None
 strokes = []
 current_stroke = None
+save_message = ""
+save_message_until = 0.0
 wand = False
 latched = False  # stops one fist hold from toggling repeatedly
 draw_armed = False
@@ -308,6 +323,8 @@ while True:
         draw_menu(frame, selected)
     label, label_color = ("WAND ON", (0, 255, 0)) if wand else ("WAND OFF", (0, 0, 255))
     cv2.putText(frame, label, (px(10), px(26)), cv2.FONT_HERSHEY_SIMPLEX, 0.65 * scale, label_color, px(1), cv2.LINE_AA)
+    if time.time() < save_message_until:
+        cv2.putText(frame, save_message, (px(10), px(58)), cv2.FONT_HERSHEY_SIMPLEX, 0.6 * scale, (0, 255, 0), px(2), cv2.LINE_AA)
     draw_help(frame)
     cv2.imshow(WINDOW, frame)
     key = cv2.waitKey(1) & 0xFF
@@ -317,6 +334,13 @@ while True:
         canvas[:] = 0
         strokes.clear()
         current_stroke = None
+    if key == ord("s"):
+        try:
+            save_drawing(canvas)
+            save_message = "Saved!"
+        except OSError:
+            save_message = "Save failed"
+        save_message_until = time.time() + 1.5
     if key == ord("u"):
         if current_stroke:
             strokes.append(current_stroke)
