@@ -99,6 +99,15 @@ def ring(frame, center, progress):
     cv2.ellipse(frame, center, (px(35), px(35)), -90, 0, 360 * progress, (0, 255, 255), px(4), cv2.LINE_AA)
 
 
+def draw_wand_icon(frame, origin, color):
+    """Draw a small wand icon beside the status label."""
+    x, y = origin
+    cv2.line(frame, (x, y + px(18)), (x + px(18), y), color, px(3), cv2.LINE_AA)
+    cv2.circle(frame, (x + px(19), y - px(1)), px(3), (0, 255, 255), cv2.FILLED, cv2.LINE_AA)
+    cv2.line(frame, (x + px(25), y - px(8)), (x + px(25), y + px(4)), (0, 255, 255), px(1), cv2.LINE_AA)
+    cv2.line(frame, (x + px(19), y - px(2)), (x + px(31), y - px(2)), (0, 255, 255), px(1), cv2.LINE_AA)
+
+
 def arc(r, a0, a1, h):
     """Points on a circle of radius r around the bottom-left corner, angles in degrees from the bottom edge."""
     return [(int(r * math.cos(math.radians(a))), int(h - r * math.sin(math.radians(a)))) for a in np.linspace(a0, a1, 8)]
@@ -307,7 +316,8 @@ while True:
     if pinky_angle is not None:
         draw_menu(frame, selected)
     label, label_color = ("WAND ON", (0, 255, 0)) if wand else ("WAND OFF", (0, 0, 255))
-    cv2.putText(frame, label, (px(10), px(26)), cv2.FONT_HERSHEY_SIMPLEX, 0.65 * scale, label_color, px(1), cv2.LINE_AA)
+    draw_wand_icon(frame, (px(8), px(15)), label_color)
+    cv2.putText(frame, label, (px(45), px(26)), cv2.FONT_HERSHEY_SIMPLEX, 0.65 * scale, label_color, px(1), cv2.LINE_AA)
     draw_help(frame)
     cv2.imshow(WINDOW, frame)
     key = cv2.waitKey(1) & 0xFF
