@@ -288,7 +288,7 @@ while True:
     if pinky_angle is not None:
         draw_menu(frame, selected)
     label, label_color = ("WAND ON", (0, 255, 0)) if wand else ("WAND OFF", (0, 0, 255))
-    cv2.putText(frame, label, (px(10), px(30)), cv2.FONT_HERSHEY_SIMPLEX, 0.9 * scale, label_color, px(2), cv2.LINE_AA)
+    cv2.putText(frame, label, (px(10), px(26)), cv2.FONT_HERSHEY_SIMPLEX, 0.65 * scale, label_color, px(1), cv2.LINE_AA)
     draw_help(frame)
     cv2.imshow(WINDOW, frame)
     key = cv2.waitKey(1) & 0xFF
