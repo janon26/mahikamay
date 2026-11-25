@@ -9,7 +9,7 @@ import numpy as np
 
 from hand_tracker import HAND_LINES, HandTracker
 
-WINDOW = "MahiKamay"
+WINDOW = "🪄 MahiKamay"
 CAMERA_SIZE = (1280, 720)  # the most this camera delivers
 COLORS = [  # BGR: red, orange, yellow, green, blue, violet
     (0, 0, 255), (0, 128, 255), (0, 255, 255), (0, 200, 0), (255, 0, 0), (211, 0, 148),
@@ -97,15 +97,6 @@ def redraw_canvas(canvas, strokes):
 
 def ring(frame, center, progress):
     cv2.ellipse(frame, center, (px(35), px(35)), -90, 0, 360 * progress, (0, 255, 255), px(4), cv2.LINE_AA)
-
-
-def draw_wand_icon(frame, origin, color):
-    """Draw a small wand icon beside the status label."""
-    x, y = origin
-    cv2.line(frame, (x, y + px(18)), (x + px(18), y), color, px(3), cv2.LINE_AA)
-    cv2.circle(frame, (x + px(19), y - px(1)), px(3), (0, 255, 255), cv2.FILLED, cv2.LINE_AA)
-    cv2.line(frame, (x + px(25), y - px(8)), (x + px(25), y + px(4)), (0, 255, 255), px(1), cv2.LINE_AA)
-    cv2.line(frame, (x + px(19), y - px(2)), (x + px(31), y - px(2)), (0, 255, 255), px(1), cv2.LINE_AA)
 
 
 def arc(r, a0, a1, h):
@@ -316,8 +307,7 @@ while True:
     if pinky_angle is not None:
         draw_menu(frame, selected)
     label, label_color = ("WAND ON", (0, 255, 0)) if wand else ("WAND OFF", (0, 0, 255))
-    draw_wand_icon(frame, (px(8), px(15)), label_color)
-    cv2.putText(frame, label, (px(45), px(26)), cv2.FONT_HERSHEY_SIMPLEX, 0.65 * scale, label_color, px(1), cv2.LINE_AA)
+    cv2.putText(frame, label, (px(10), px(26)), cv2.FONT_HERSHEY_SIMPLEX, 0.65 * scale, label_color, px(1), cv2.LINE_AA)
     draw_help(frame)
     cv2.imshow(WINDOW, frame)
     key = cv2.waitKey(1) & 0xFF
