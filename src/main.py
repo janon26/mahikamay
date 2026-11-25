@@ -79,6 +79,14 @@ def save_settings(brush_size, color_index):
         pass
 
 
+def redraw_canvas(canvas, strokes):
+    """Rebuild the canvas from the remaining strokes after an undo."""
+    canvas[:] = 0
+    for stroke in strokes:
+        for start, end, color, thickness in stroke:
+            cv2.line(canvas, start, end, color, thickness)
+
+
 def ring(frame, center, progress):
     cv2.ellipse(frame, center, (px(35), px(35)), -90, 0, 360 * progress, (0, 255, 255), px(4), cv2.LINE_AA)
 
@@ -106,6 +114,7 @@ HELP = [
     "DRAW: right index finger up",
     "ERASE: right index + middle up, together",
     "CLEAR: both palms open, hold 1s",
+    "UNDO: u = remove the last stroke",
     "BRUSH SIZE: left thumb + index pinch",
     "   (other 3 fingers folded)",
     "COLOR: left pinky only up,",
@@ -148,6 +157,8 @@ cv2.setMouseCallback(WINDOW, on_mouse)
 tracker = HandTracker()
 canvas = None
 prev = None
+strokes = []
+current_stroke = None
 wand = False
 latched = False  # stops one fist hold from toggling repeatedly
 draw_armed = False
@@ -223,6 +234,8 @@ while True:
 
     if clear == 1:
         canvas[:] = 0
+        strokes.clear()
+        current_stroke = None
     eraser = None
     together = bool(right) and math.dist(right[8], right[12]) < TOGETHER * math.dist(right[0], right[9])
     if wand and index and middle and together and not (ring_ or pinky):  # point between the two fingertips
@@ -233,11 +246,18 @@ while True:
     if pt:
         tip_history.append(pt)
         smooth_pt = tuple(np.mean(tip_history, axis=0).astype(int))
+        if prev is None:
+            current_stroke = []
         if prev:
-            cv2.line(canvas, prev, smooth_pt, ink, int(brush))
+            thickness = int(brush)
+            cv2.line(canvas, prev, smooth_pt, ink, thickness)
+            current_stroke.append((prev, smooth_pt, ink, thickness))
         prev = smooth_pt
         cursor = smooth_pt
     else:
+        if current_stroke:
+            strokes.append(current_stroke)
+            current_stroke = None
         tip_history.clear()
         prev = None
 
@@ -276,6 +296,17 @@ while True:
         break
     if key == ord(" "):
         canvas[:] = 0
+        strokes.clear()
+        current_stroke = None
+    if key == ord("u"):
+        if current_stroke:
+            strokes.append(current_stroke)
+            current_stroke = None
+        if strokes:
+            strokes.pop()
+            redraw_canvas(canvas, strokes)
+        prev = None
+        tip_history.clear()
 
 save_settings(brush_size, selected_color)
 cap.release()
