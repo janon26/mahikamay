@@ -292,7 +292,8 @@ while True:
 
     # Left hand: pinch thumb and index together or apart to preview a brush or eraser size.
     # The size commits only after the pinch position stays steady for a moment.
-    if left and not pinky_only and not any(up(left, t) for t in (12, 16, 20)):
+    folded_fingers = sum(up(left, t) for t in (12, 16, 20)) if left else 3
+    if left and not pinky_only and folded_fingers <= 1:
         span = max(math.dist(left[0], left[9]), 1)  # hand size, so distance to camera matters less
         pinch = math.dist(left[4], left[8]) / span
         active_kind = "eraser" if eraser_active else "brush"
