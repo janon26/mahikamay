@@ -90,12 +90,15 @@ def save_settings(brush_size, color_index):
         pass
 
 
-def redraw_canvas(canvas, strokes):
-    """Rebuild the canvas from the remaining strokes after an undo."""
+def redraw_canvas(canvas, actions):
+    """Rebuild the canvas from ordered drawing and erasing actions."""
     canvas[:] = 0
-    for stroke in strokes:
-        for start, end, color, thickness in stroke:
-            cv2.line(canvas, start, end, color, thickness)
+    for action in actions:
+        if action[0] == "stroke":
+            for start, end, color, thickness in action[1]:
+                cv2.line(canvas, start, end, color, thickness)
+        else:
+            cv2.circle(canvas, action[1], action[2], 0, cv2.FILLED)
 
 
 def stroke_segments(points, color, thickness):
@@ -325,7 +328,7 @@ while True:
     mode = "eraser" if wand and eraser_pose(right) else "draw" if wand else "off"
     if mode != last_mode:
         if current_stroke:
-            strokes.append(current_stroke)
+            strokes.append(("stroke", current_stroke))
         current_stroke = None
         current_points = []
         shape_hold_since = None
@@ -348,7 +351,9 @@ while True:
     eraser = None
     if wand and eraser_active:  # point between the two fingertips
         eraser = ((right[8][0] + right[12][0]) // 2, (right[8][1] + right[12][1]) // 2)
-        cv2.circle(canvas, eraser, px(eraser_size), 0, cv2.FILLED)
+        eraser_radius = px(eraser_size)
+        cv2.circle(canvas, eraser, eraser_radius, 0, cv2.FILLED)
+        strokes.append(("erase", eraser, eraser_radius))
     pt = right[8] if wand and draw_armed and index and not (middle or ring_ or pinky) else None
     cursor = None
     shape_waiting = False
@@ -388,7 +393,7 @@ while True:
                         color = current_stroke[0][2] if current_stroke else ink
                         thickness = current_stroke[0][3] if current_stroke else int(brush)
                         current_stroke = stroke_segments(clean_points, color, thickness)
-                        strokes.append(current_stroke)
+                        strokes.append(("stroke", current_stroke))
                         current_stroke = None
                         redraw_canvas(canvas, strokes)
                         save_message = "Shape polished!"
@@ -402,7 +407,7 @@ while True:
                 shape_hold_since = None
     else:
         if current_stroke:
-            strokes.append(current_stroke)
+            strokes.append(("stroke", current_stroke))
             current_stroke = None
         current_points = []
         shape_hold_since = None
@@ -469,7 +474,7 @@ while True:
         save_message_until = time.time() + 1.5
     if key == ord("u"):
         if current_stroke:
-            strokes.append(current_stroke)
+            strokes.append(("stroke", current_stroke))
             current_stroke = None
         if strokes:
             strokes.pop()
