@@ -281,7 +281,8 @@ while True:
 
     # Left pinky only up: open the colour menu and pick by pinky tilt (the pinky being up also pauses brush size).
     # The pinky counts as up when extended in any direction, so it can point sideways to reach violet.
-    pinky_only = bool(left) and finger_fully_extended(left, 20, 17, 1.7) and not any(up(left, t) for t in (8, 12, 16))
+    pinch_pose = bool(left) and math.dist(left[4], left[8]) < 0.75 * max(math.dist(left[0], left[9]), 1)
+    pinky_only = bool(left) and not adjustment_session and not pinch_pose and finger_fully_extended(left, 20, 17, 1.7) and not any(up(left, t) for t in (8, 12, 16))
     if pinky_only:
         tilt = math.degrees(math.atan2(left[17][1] - left[20][1], left[20][0] - left[17][0]))  # 90 = parallel to the left edge, 0 = parallel to the bottom edge
         pinky_angle = tilt if pinky_angle is None else pinky_angle + 0.3 * (tilt - pinky_angle)
