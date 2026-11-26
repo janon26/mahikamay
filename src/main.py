@@ -24,6 +24,9 @@ SMOOTHING_POINTS = 5
 BRUSH_CONFIRM_SECS = 0.5
 BRUSH_SMOOTHING = 0.2
 BRUSH_STABLE_TOLERANCE = 3.0
+SHAPE_HOLD_SECS = 1.0
+SHAPE_MIN_POINTS = 12
+SHAPE_MIN_SIZE = 30
 SETTINGS_FILE = Path(__file__).resolve().parent.parent / "settings.json"
 
 since = {}  # when each gesture started being held
@@ -93,6 +96,56 @@ def redraw_canvas(canvas, strokes):
     for stroke in strokes:
         for start, end, color, thickness in stroke:
             cv2.line(canvas, start, end, color, thickness)
+
+
+def stroke_segments(points, color, thickness):
+    """Convert a closed point path into the segment format used by undo."""
+    return [
+        (tuple(start), tuple(end), color, thickness)
+        for start, end in zip(points, points[1:])
+    ]
+
+
+def shape_points(points):
+    """Return clean points for a confident triangle, rectangle, or ellipse."""
+    if len(points) < SHAPE_MIN_POINTS:
+        return None
+    contour = np.asarray(points, dtype=np.int32).reshape(-1, 1, 2)
+    perimeter = cv2.arcLength(contour, True)
+    area = abs(cv2.contourArea(contour))
+    if perimeter < SHAPE_MIN_SIZE or area < SHAPE_MIN_SIZE ** 2:
+        return None
+
+    approximation = cv2.approxPolyDP(contour, 0.04 * perimeter, True).reshape(-1, 2)
+    if len(approximation) == 3 and cv2.isContourConvex(approximation.reshape(-1, 1, 2)):
+        return np.vstack((approximation, approximation[0]))
+
+    if len(approximation) == 4 and cv2.isContourConvex(approximation.reshape(-1, 1, 2)):
+        angles = []
+        for i in range(4):
+            current = approximation[i].astype(float)
+            before = approximation[i - 1].astype(float) - current
+            after = approximation[(i + 1) % 4].astype(float) - current
+            cosine = np.dot(before, after) / max(np.linalg.norm(before) * np.linalg.norm(after), 1)
+            angles.append(abs(math.degrees(math.acos(np.clip(cosine, -1, 1)))))
+        if all(65 <= angle <= 115 for angle in angles):
+            return np.vstack((approximation, approximation[0]))
+
+    if len(points) >= 5:
+        ellipse = cv2.fitEllipse(contour)
+        (cx, cy), (major, minor), angle = ellipse
+        ellipse_area = math.pi * major * minor / 4
+        if ellipse_area and area / ellipse_area >= 0.65:
+            radians = math.radians(angle)
+            cos_angle, sin_angle = math.cos(radians), math.sin(radians)
+            result = []
+            for step in range(65):
+                theta = 2 * math.pi * step / 64
+                x = (major / 2) * math.cos(theta)
+                y = (minor / 2) * math.sin(theta)
+                result.append((round(cx + x * cos_angle - y * sin_angle), round(cy + x * sin_angle + y * cos_angle)))
+            return np.asarray(result, dtype=np.int32)
+    return None
 
 
 def save_drawing(canvas):
@@ -180,6 +233,10 @@ canvas = None
 prev = None
 strokes = []
 current_stroke = None
+current_points = []
+shape_hold_since = None
+shape_locked = False
+shape_anchor = None
 save_message = ""
 save_message_until = 0.0
 wand = False
@@ -270,27 +327,74 @@ while True:
         canvas[:] = 0
         strokes.clear()
         current_stroke = None
+        current_points = []
+        shape_hold_since = None
+        shape_locked = False
+        shape_anchor = None
     eraser = None
     if wand and eraser_active:  # point between the two fingertips
         eraser = ((right[8][0] + right[12][0]) // 2, (right[8][1] + right[12][1]) // 2)
         cv2.circle(canvas, eraser, px(eraser_size), 0, cv2.FILLED)
     pt = right[8] if wand and draw_armed and index and not (middle or ring_ or pinky) else None
     cursor = None
+    shape_waiting = False
+    if shape_locked and pt:
+        if shape_anchor and math.dist(pt, shape_anchor) > max(px(24), px(SHAPE_MIN_SIZE)):
+            shape_locked = False
+            shape_anchor = None
+            current_points = []
+            current_stroke = None
+            prev = None
+        else:
+            pt = None
+            shape_waiting = True
     if pt:
         tip_history.append(pt)
         smooth_pt = tuple(np.mean(tip_history, axis=0).astype(int))
         if prev is None:
             current_stroke = []
+            current_points = [smooth_pt]
+            shape_hold_since = None
+        else:
+            current_points.append(smooth_pt)
         if prev:
             thickness = int(brush)
             cv2.line(canvas, prev, smooth_pt, ink, thickness)
             current_stroke.append((prev, smooth_pt, ink, thickness))
         prev = smooth_pt
         cursor = smooth_pt
+        if len(current_points) >= SHAPE_MIN_POINTS:
+            start_point = current_points[0]
+            close_radius = max(px(24), px(SHAPE_MIN_SIZE))
+            if math.dist(smooth_pt, start_point) <= close_radius:
+                shape_hold_since = shape_hold_since or time.time()
+                if time.time() - shape_hold_since >= SHAPE_HOLD_SECS:
+                    clean_points = shape_points(current_points)
+                    if clean_points is not None:
+                        color = current_stroke[0][2] if current_stroke else ink
+                        thickness = current_stroke[0][3] if current_stroke else int(brush)
+                        current_stroke = stroke_segments(clean_points, color, thickness)
+                        strokes.append(current_stroke)
+                        current_stroke = None
+                        redraw_canvas(canvas, strokes)
+                        save_message = "Shape polished!"
+                        save_message_until = time.time() + 1.5
+                        shape_locked = True
+                        shape_anchor = start_point
+                        shape_hold_since = None
+                        current_points = []
+                        prev = None
+            else:
+                shape_hold_since = None
     else:
         if current_stroke:
             strokes.append(current_stroke)
             current_stroke = None
+        current_points = []
+        shape_hold_since = None
+        if not shape_waiting:
+            shape_locked = False
+            shape_anchor = None
         tip_history.clear()
         prev = None
 
@@ -334,6 +438,14 @@ while True:
         canvas[:] = 0
         strokes.clear()
         current_stroke = None
+        current_points = []
+        shape_hold_since = None
+        shape_locked = False
+        shape_anchor = None
+        current_points = []
+        shape_hold_since = None
+        shape_locked = False
+        shape_anchor = None
     if key == ord("s"):
         try:
             save_drawing(canvas)
