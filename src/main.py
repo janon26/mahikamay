@@ -1,5 +1,7 @@
 import math
 import json
+import os
+import sys
 import time
 from collections import deque
 from pathlib import Path
@@ -196,6 +198,7 @@ HELP = [
     "CLEAR: both palms open, hold 1s",
     "UNDO: u = remove the last stroke",
     "SAVE: s = transparent PNG",
+    "RESTART: r = restart app",
     "BRUSH SIZE: left thumb + index pinch",
     "   (other 3 fingers folded)",
     "COLOR: left pinky only up,",
@@ -246,6 +249,7 @@ shape_locked = False
 shape_anchor = None
 save_message = ""
 save_message_until = 0.0
+restart_requested = False
 wand = False
 last_mode = "off"
 latched = False  # stops one fist hold from toggling repeatedly
@@ -457,6 +461,9 @@ while True:
     key = cv2.waitKey(1) & 0xFF
     if key == ord("q"):
         break
+    if key in (ord("r"), ord("R")):
+        restart_requested = True
+        break
     if key == ord(" "):
         canvas[:] = 0
         strokes.clear()
@@ -489,3 +496,5 @@ while True:
 save_settings(brush_size, selected_color)
 cap.release()
 cv2.destroyAllWindows()
+if restart_requested:
+    os.execv(sys.executable, [sys.executable, *sys.argv])
