@@ -36,9 +36,14 @@ def up(hand, tip):
     return hand[tip][1] < hand[tip - 2][1]  # fingertip above its middle joint
 
 
+def finger_fully_extended(hand, tip, mcp):
+    """Require a finger tip to be well beyond its proximal joint."""
+    return up(hand, tip) and math.dist(hand[mcp], hand[tip]) > 2.2 * max(math.dist(hand[mcp], hand[tip - 2]), 1)
+
+
 def index_fully_extended(hand):
     """Require both index joints to be straight before arming drawing."""
-    return up(hand, 8) and math.dist(hand[5], hand[8]) > 2.2 * max(math.dist(hand[5], hand[6]), 1)
+    return finger_fully_extended(hand, 8, 5)
 
 
 def eraser_pose(hand):
@@ -272,7 +277,7 @@ while True:
 
     # Left pinky only up: open the colour menu and pick by pinky tilt (the pinky being up also pauses brush size).
     # The pinky counts as up when extended in any direction, so it can point sideways to reach violet.
-    pinky_only = bool(left) and math.dist(left[0], left[20]) > math.dist(left[0], left[18]) and not any(up(left, t) for t in (8, 12, 16))
+    pinky_only = bool(left) and finger_fully_extended(left, 20, 17) and not any(up(left, t) for t in (8, 12, 16))
     if pinky_only:
         tilt = math.degrees(math.atan2(left[17][1] - left[20][1], left[20][0] - left[17][0]))  # 90 = parallel to the left edge, 0 = parallel to the bottom edge
         pinky_angle = tilt if pinky_angle is None else pinky_angle + 0.3 * (tilt - pinky_angle)
