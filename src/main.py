@@ -329,7 +329,6 @@ while True:
         brush_candidate_confirmed = False
         pinch_size = None
         pinch_kind = None
-adjustment_session = False
 
     # Right hand: all the gestures.
     index, middle, ring_, pinky = (right and up(right, t) for t in (8, 12, 16, 20))
