@@ -342,6 +342,11 @@ while True:
         tip_history.clear()
         last_mode = mode
     eraser_active = mode == "eraser"
+    effective_eraser_size = (
+        brush_candidate
+        if eraser_active and pinch_kind == "eraser" and brush_candidate is not None
+        else eraser_size
+    )
     clear = hold("clear", wand and both_palms, CLEAR_SECS)
 
     if clear == 1:
@@ -355,7 +360,7 @@ while True:
     eraser = None
     if wand and eraser_active:  # point between the two fingertips
         eraser = ((right[8][0] + right[12][0]) // 2, (right[8][1] + right[12][1]) // 2)
-        eraser_radius = px(eraser_size)
+        eraser_radius = px(effective_eraser_size)
         cv2.circle(canvas, eraser, eraser_radius, 0, cv2.FILLED)
         strokes.append(("erase", eraser, eraser_radius))
     pt = right[8] if wand and draw_armed and index and not (middle or ring_ or pinky) else None
@@ -431,7 +436,7 @@ while True:
     if left:  # show the thumb-index line and the current brush size between the fingertips
         cv2.line(frame, left[4], left[8], (0, 255, 255), px(2), cv2.LINE_AA)
         mid = ((left[4][0] + left[8][0]) // 2, (left[4][1] + left[8][1]) // 2)
-        preview_brush = brush_candidate * scale if brush_candidate is not None else (eraser_size * scale if eraser_active else brush)
+        preview_brush = effective_eraser_size * scale if eraser_active else (brush_candidate * scale if brush_candidate is not None else brush)
         preview_color = (255, 255, 255) if eraser_active else ink
         cv2.circle(frame, mid, max(int(preview_brush / 2), 1), preview_color, cv2.FILLED)
         if brush_candidate is not None and not brush_candidate_confirmed:
@@ -445,7 +450,7 @@ while True:
         for h in (left, right):
             ring(frame, h[9], clear)
     if eraser:
-        cv2.circle(frame, eraser, px(eraser_size), (255, 255, 255), px(2), cv2.LINE_AA)
+        cv2.circle(frame, eraser, px(effective_eraser_size), (255, 255, 255), px(2), cv2.LINE_AA)
     if pinky_angle is not None:
         draw_menu(frame, selected)
     label, label_color = ("WAND ON", (0, 255, 0)) if wand else ("WAND OFF", (0, 0, 255))
