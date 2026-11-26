@@ -240,6 +240,7 @@ shape_anchor = None
 save_message = ""
 save_message_until = 0.0
 wand = False
+last_mode = "off"
 latched = False  # stops one fist hold from toggling repeatedly
 draw_armed = False
 brush_size = settings["brush_size"]  # stored in 640-wide logical pixels
@@ -321,6 +322,19 @@ while True:
         latched = False
     if wand and right and index and not (middle or ring_ or pinky) and index_fully_extended(right):
         draw_armed = True
+    mode = "eraser" if wand and eraser_pose(right) else "draw" if wand else "off"
+    if mode != last_mode:
+        if current_stroke:
+            strokes.append(current_stroke)
+        current_stroke = None
+        current_points = []
+        shape_hold_since = None
+        shape_locked = False
+        shape_anchor = None
+        prev = None
+        tip_history.clear()
+        last_mode = mode
+    eraser_active = mode == "eraser"
     clear = hold("clear", wand and both_palms, CLEAR_SECS)
 
     if clear == 1:
