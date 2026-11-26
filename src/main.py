@@ -25,7 +25,7 @@ TOGGLE_SECS, CLEAR_SECS = 0.7, 1.0
 SMOOTHING_POINTS = 5
 BRUSH_CONFIRM_SECS = 0.5
 BRUSH_SMOOTHING = 0.2
-BRUSH_STABLE_TOLERANCE = 3.0
+BRUSH_STABLE_TOLERANCE = 2.0
 SHAPE_HOLD_SECS = 1.0
 SHAPE_MIN_POINTS = 12
 SHAPE_MIN_SIZE = 30
@@ -295,14 +295,22 @@ while True:
 
     # Left hand: pinch thumb and index together or apart to preview a brush or eraser size.
     # The size commits only after the pinch position stays steady for a moment.
-    if left and not pinky_only and not any(up(left, t) for t in (12, 16, 20)):
+    adjustment_pose = left and not pinky_only and not any(up(left, t) for t in (12, 16, 20))
+    if adjustment_pose:
+        if not adjustment_session:
+            adjustment_session = True
+            brush_candidate = None
+            brush_candidate_since = None
+            brush_candidate_confirmed = False
+            pinch_size = None
+            pinch_kind = None
         span = max(math.dist(left[0], left[9]), 1)  # hand size, so distance to camera matters less
         pinch = math.dist(left[4], left[8]) / span
         active_kind = "eraser" if eraser_active else "brush"
         size_min, size_max = (MIN_ERASER, MAX_ERASER) if eraser_active else (MIN_BRUSH, MAX_BRUSH)
         target_size = float(np.interp(pinch, (0.15, 1.0), (size_min, size_max)))
         pinch_size = target_size if pinch_size is None else pinch_size + BRUSH_SMOOTHING * (target_size - pinch_size)
-        if active_kind != pinch_kind or brush_candidate is None or abs(pinch_size - brush_candidate) > BRUSH_STABLE_TOLERANCE:
+        if active_kind != pinch_kind or brush_candidate is None or abs(target_size - brush_candidate) > BRUSH_STABLE_TOLERANCE:
             pinch_kind = active_kind
             brush_candidate = pinch_size
             brush_candidate_since = time.time()
@@ -315,11 +323,13 @@ while True:
                 brush = brush_size * scale
             brush_candidate_confirmed = True
     else:
+        adjustment_session = False
         brush_candidate = None
         brush_candidate_since = None
         brush_candidate_confirmed = False
         pinch_size = None
         pinch_kind = None
+adjustment_session = False
 
     # Right hand: all the gestures.
     index, middle, ring_, pinky = (right and up(right, t) for t in (8, 12, 16, 20))
