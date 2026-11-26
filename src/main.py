@@ -281,8 +281,7 @@ while True:
 
     # Left pinky only up: open the colour menu and pick by pinky tilt (the pinky being up also pauses brush size).
     # The pinky counts as up when extended in any direction, so it can point sideways to reach violet.
-    pinch_pose = bool(left) and math.dist(left[4], left[8]) < 0.75 * max(math.dist(left[0], left[9]), 1)
-    pinky_only = bool(left) and not adjustment_session and not pinch_pose and finger_fully_extended(left, 20, 17, 1.7) and not any(up(left, t) for t in (8, 12, 16))
+    pinky_only = bool(left) and finger_fully_extended(left, 20, 17, 1.7) and not any(up(left, t) for t in (8, 12, 16))
     if pinky_only:
         tilt = math.degrees(math.atan2(left[17][1] - left[20][1], left[20][0] - left[17][0]))  # 90 = parallel to the left edge, 0 = parallel to the bottom edge
         pinky_angle = tilt if pinky_angle is None else pinky_angle + 0.3 * (tilt - pinky_angle)
@@ -296,7 +295,8 @@ while True:
 
     # Left hand: pinch thumb and index together or apart to preview a brush or eraser size.
     # The size commits only after the pinch position stays steady for a moment.
-    adjustment_pose = left and not pinky_only and not any(up(left, t) for t in (12, 16, 20))
+    fingers_down = left and all(not up(left, t) for t in (12, 16, 20))
+    adjustment_pose = bool(left) and not pinky_only and fingers_down
     if adjustment_pose:
         if not adjustment_session:
             adjustment_session = True
