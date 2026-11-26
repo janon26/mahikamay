@@ -123,16 +123,15 @@ def shape_points(points):
     if len(approximation) == 3 and cv2.isContourConvex(approximation.reshape(-1, 1, 2)):
         return np.vstack((approximation, approximation[0]))
 
-    if len(approximation) == 4 and cv2.isContourConvex(approximation.reshape(-1, 1, 2)):
-        angles = []
-        for i in range(4):
-            current = approximation[i].astype(float)
-            before = approximation[i - 1].astype(float) - current
-            after = approximation[(i + 1) % 4].astype(float) - current
-            cosine = np.dot(before, after) / max(np.linalg.norm(before) * np.linalg.norm(after), 1)
-            angles.append(abs(math.degrees(math.acos(np.clip(cosine, -1, 1)))))
-        if all(65 <= angle <= 115 for angle in angles):
-            return np.vstack((approximation, approximation[0]))
+    # Rough rectangles often simplify to 5 or 6 corners. Validate their
+    # minimum-area box before ellipse fitting, so they are not mistaken for circles.
+    if 4 <= len(approximation) <= 6 and cv2.isContourConvex(approximation.reshape(-1, 1, 2)):
+        (_, _), (width, height), _ = cv2.minAreaRect(contour)
+        box_area = width * height
+        box_perimeter = 2 * (width + height)
+        if box_area and box_perimeter and area / box_area >= 0.55 and perimeter / box_perimeter >= 0.84:
+            box = cv2.boxPoints(cv2.minAreaRect(contour)).astype(np.int32)
+            return np.vstack((box, box[0]))
 
     if len(points) >= 5:
         ellipse = cv2.fitEllipse(contour)
