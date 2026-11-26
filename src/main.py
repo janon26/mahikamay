@@ -277,8 +277,7 @@ while True:
 
     # Left pinky only up: open the colour menu and pick by pinky tilt (the pinky being up also pauses brush size).
     # The pinky counts as up when extended in any direction, so it can point sideways to reach violet.
-    pinch_pose = bool(left) and math.dist(left[4], left[8]) < 0.35 * max(math.dist(left[0], left[9]), 1)
-    pinky_only = bool(left) and not pinch_pose and finger_fully_extended(left, 20, 17, 2.0) and not any(up(left, t) for t in (8, 12, 16))
+    pinky_only = bool(left) and finger_fully_extended(left, 20, 17, 1.7) and not any(up(left, t) for t in (8, 12, 16))
     if pinky_only:
         tilt = math.degrees(math.atan2(left[17][1] - left[20][1], left[20][0] - left[17][0]))  # 90 = parallel to the left edge, 0 = parallel to the bottom edge
         pinky_angle = tilt if pinky_angle is None else pinky_angle + 0.3 * (tilt - pinky_angle)
@@ -292,8 +291,7 @@ while True:
 
     # Left hand: pinch thumb and index together or apart to preview a brush or eraser size.
     # The size commits only after the pinch position stays steady for a moment.
-    folded_fingers = sum(up(left, t) for t in (12, 16, 20)) if left else 3
-    if left and not pinky_only and folded_fingers <= 1:
+    if left and not pinky_only and not any(up(left, t) for t in (12, 16, 20)):
         span = max(math.dist(left[0], left[9]), 1)  # hand size, so distance to camera matters less
         pinch = math.dist(left[4], left[8]) / span
         active_kind = "eraser" if eraser_active else "brush"
@@ -344,11 +342,6 @@ while True:
         tip_history.clear()
         last_mode = mode
     eraser_active = mode == "eraser"
-    effective_eraser_size = (
-        brush_candidate
-        if eraser_active and pinch_kind == "eraser" and brush_candidate is not None
-        else eraser_size
-    )
     clear = hold("clear", wand and both_palms, CLEAR_SECS)
 
     if clear == 1:
@@ -362,7 +355,7 @@ while True:
     eraser = None
     if wand and eraser_active:  # point between the two fingertips
         eraser = ((right[8][0] + right[12][0]) // 2, (right[8][1] + right[12][1]) // 2)
-        eraser_radius = px(effective_eraser_size)
+        eraser_radius = px(eraser_size)
         cv2.circle(canvas, eraser, eraser_radius, 0, cv2.FILLED)
         strokes.append(("erase", eraser, eraser_radius))
     pt = right[8] if wand and draw_armed and index and not (middle or ring_ or pinky) else None
@@ -438,7 +431,7 @@ while True:
     if left:  # show the thumb-index line and the current brush size between the fingertips
         cv2.line(frame, left[4], left[8], (0, 255, 255), px(2), cv2.LINE_AA)
         mid = ((left[4][0] + left[8][0]) // 2, (left[4][1] + left[8][1]) // 2)
-        preview_brush = effective_eraser_size * scale if eraser_active else (brush_candidate * scale if brush_candidate is not None else brush)
+        preview_brush = brush_candidate * scale if brush_candidate is not None else (eraser_size * scale if eraser_active else brush)
         preview_color = (255, 255, 255) if eraser_active else ink
         cv2.circle(frame, mid, max(int(preview_brush / 2), 1), preview_color, cv2.FILLED)
         if brush_candidate is not None and not brush_candidate_confirmed:
@@ -452,7 +445,7 @@ while True:
         for h in (left, right):
             ring(frame, h[9], clear)
     if eraser:
-        cv2.circle(frame, eraser, px(effective_eraser_size), (255, 255, 255), px(2), cv2.LINE_AA)
+        cv2.circle(frame, eraser, px(eraser_size), (255, 255, 255), px(2), cv2.LINE_AA)
     if pinky_angle is not None:
         draw_menu(frame, selected)
     label, label_color = ("WAND ON", (0, 255, 0)) if wand else ("WAND OFF", (0, 0, 255))
