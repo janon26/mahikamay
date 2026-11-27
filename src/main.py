@@ -264,6 +264,7 @@ brush_candidate_confirmed = False
 pinch_size = None
 eraser_size = float(ERASE_RADIUS)
 pinch_kind = None
+adjustment_session = False
 selected_color = settings["color_index"]
 ink = COLORS[selected_color]  # current colour
 pinky_angle = None  # smoothed tilt of the left pinky while the colour menu is open
