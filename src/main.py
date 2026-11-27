@@ -197,6 +197,7 @@ HELP = [
     "DRAW: right index finger up",
     "ERASE: right index + middle up, together",
     "ERASER SIZE: [ smaller, ] larger",
+    "SKELETON: h = show/hide hand tracking",
     "CLEAR: both palms open, hold 1s",
     "UNDO: u = remove the last stroke",
     "SAVE: s = transparent PNG",
@@ -252,6 +253,7 @@ shape_anchor = None
 save_message = ""
 save_message_until = 0.0
 restart_requested = False
+show_skeleton = True
 wand = False
 last_mode = "off"
 latched = False  # stops one fist hold from toggling repeatedly
@@ -440,11 +442,12 @@ while True:
 
     drawn = canvas.any(axis=2)
     frame[drawn] = canvas[drawn]
-    for pts in hands.values():
-        for a, b in HAND_LINES:
-            cv2.line(frame, pts[a], pts[b], (0, 255, 0), px(2), cv2.LINE_AA)
-        for p in pts:
-            cv2.circle(frame, p, px(4), (0, 0, 255), cv2.FILLED, cv2.LINE_AA)
+    if show_skeleton:
+        for pts in hands.values():
+            for a, b in HAND_LINES:
+                cv2.line(frame, pts[a], pts[b], (0, 255, 0), px(2), cv2.LINE_AA)
+            for p in pts:
+                cv2.circle(frame, p, px(4), (0, 0, 255), cv2.FILLED, cv2.LINE_AA)
     if left:  # show the thumb-index line and the current brush size between the fingertips
         cv2.line(frame, left[4], left[8], (0, 255, 255), px(2), cv2.LINE_AA)
         mid = ((left[4][0] + left[8][0]) // 2, (left[4][1] + left[8][1]) // 2)
@@ -477,6 +480,8 @@ while True:
     if key in (ord("r"), ord("R")):
         restart_requested = True
         break
+    if key in (ord("h"), ord("H")):
+        show_skeleton = not show_skeleton
     if key == ord(" "):
         canvas[:] = 0
         strokes.clear()
