@@ -19,6 +19,7 @@ COLORS = [  # BGR: red, orange, yellow, green, blue, violet
 # Sizes below are in pixels for a 640-wide frame; px() scales them to the real frame width.
 ERASE_RADIUS = 25
 MIN_ERASER, MAX_ERASER = 8, 80
+ERASER_STEP = 2
 TOGETHER = 0.3  # erase only if index and middle fingertips are closer than this fraction of palm length
 MIN_BRUSH, MAX_BRUSH = 2, 40
 TOGGLE_SECS, CLEAR_SECS = 0.7, 1.0
@@ -195,6 +196,7 @@ HELP = [
     "WAND on/off: right fist, hold 0.7s",
     "DRAW: right index finger up",
     "ERASE: right index + middle up, together",
+    "ERASER SIZE: [ smaller, ] larger",
     "CLEAR: both palms open, hold 1s",
     "UNDO: u = remove the last stroke",
     "SAVE: s = transparent PNG",
@@ -493,6 +495,14 @@ while True:
         except OSError:
             save_message = "Save failed"
         save_message_until = time.time() + 1.5
+    if key == ord("["):
+        eraser_size = max(MIN_ERASER, eraser_size - ERASER_STEP)
+        save_message = f"Eraser: {round(eraser_size)}px"
+        save_message_until = time.time() + 1.0
+    if key == ord("]"):
+        eraser_size = min(MAX_ERASER, eraser_size + ERASER_STEP)
+        save_message = f"Eraser: {round(eraser_size)}px"
+        save_message_until = time.time() + 1.0
     if key == ord("u"):
         if current_stroke:
             strokes.append(("stroke", current_stroke))
